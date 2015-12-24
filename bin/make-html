@@ -1,0 +1,71 @@
+#!/usr/bin/python3
+
+import os
+import json
+
+def header():
+    print('<html><head><meta charset="utf-8"></head><body>')
+
+def entry(metadata):
+    sha1name = metadata['sha1']
+    short = sha1name[0:2]
+    print("\n<p>Box '%s' pile '%s' page %d - %s</p>" % (metadata['box'],
+                                                        metadata['pile'],
+                                                        metadata['page'] + 1,
+                                                        sha1name))
+    print("<table border=\"1\">")
+    print("<tr>")
+    print('<td valign=\"top\" width="48%%"><img valign=\"top\" width="100%%" src="../extracted/%s/%s.png"/></td>' %
+          (short, sha1name))
+    print('<td width="48%%"><pre>%s</pre></td>' % metadata['ocrdata'])
+    print("</tr>")
+    print("</table>")
+
+def footer():
+    print('</body>\n')
+
+def load_metafile(metafile):
+    with open(metafile, encoding="utf-8") as meta:
+        metadata = json.loads(meta.read())
+        metadata['page'] = int(metadata['page'])
+        (box, pile) = metadata['pdf'].split('/')[1:3]
+        metadata['box'] = box
+        metadata['pile'] = pile.replace(".pdf", "")
+    return metadata
+
+def load_ocrdata(ocrfile):
+    with open(ocrfilename, encoding="utf-8") as ocrfile:
+        ocrdata = ocrfile.read()
+    return ocrdata
+
+
+entries = []
+
+for root, dirs, files in os.walk("/scratch/pere/ofotenarkiv/extracted"):
+    for file in files:
+        if file.endswith(".meta"):
+            metafile = os.path.join(root, file)
+            ocrfilename = metafile.replace(".meta", ".ocr")
+            try:
+                metadata = load_metafile(metafile)
+                metadata['ocrdata'] = load_ocrdata(ocrfilename)
+                basename = os.path.basename(metafile).replace(".meta", "")
+                metadata['sha1'] = basename
+#                print(metadata)
+                entries.append(metadata)
+            except ValueError as e:
+                print(metafile, str(e))
+                raise
+
+header()
+
+from operator import attrgetter, itemgetter
+
+def sortfunc(k):
+#    print(k)
+    return itemgetter('box', 'pile', 'page')(k)
+
+for metadata in sorted(entries, key=sortfunc):
+    entry(metadata)
+
+footer()

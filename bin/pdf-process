@@ -1,0 +1,33 @@
+#!/bin/sh
+
+set -e
+set -x
+
+extracted="$(dirname $0)/../extracted"
+
+process_pdf() {
+    pdf="$1"
+    workdir="$(mktemp -d)"
+    pdfimages -png "$pdf" $workdir/
+
+    for img in $workdir/* ; do
+	page=$(basename "$img" .png|cut -d- -f2-)
+	echo "processing '$pdf' page $page"
+
+	sha1=$(sha1sum "$img"|awk '{print $1}')
+	sha1short=$(echo $sha1|cut -c1-2)
+	mkdir -p "$extracted/$sha1short"
+
+	base="$extracted/$sha1short/$sha1"
+	mv "$img" "$base.png"
+	img="$base.png"
+	ocr="$base.ocr"
+	tesseract -l nor "$img" stdout > "$ocr"
+	echo "{\"pdf\" : \"$pdf\", \"page\" : \"$page\"}" > "$base.meta"
+    done
+    rm -rf "$workdir"
+}
+
+for pdf in "$@"; do
+    process_pdf "$pdf"
+done
